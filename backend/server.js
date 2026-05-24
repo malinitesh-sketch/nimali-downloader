@@ -11,6 +11,23 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const COOKIES_FILE = path.join(__dirname, 'cookies.txt');
 
+// Validate cookies.txt exists at startup
+if (fs.existsSync(COOKIES_FILE)) {
+  const size = fs.statSync(COOKIES_FILE).size;
+  console.log(`[STARTUP] cookies.txt found: ${COOKIES_FILE} (${size} bytes)`);
+} else {
+  console.warn(`[STARTUP] WARNING: cookies.txt NOT FOUND at ${COOKIES_FILE}`);
+}
+
+// Global yt-dlp flags for all invocations (bypass bot detection)
+const YT_DLP_GLOBAL_ARGS = [
+  '--cookies', COOKIES_FILE,
+  '--no-warnings',
+  '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  '--extractor-args', 'youtube:player_client=web',
+  '--force-ipv4',
+];
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -71,7 +88,7 @@ app.post('/api/info', (req, res) => {
 
   // Escape the URL for safe shell usage
   const safeUrl = url.replace(/"/g, '\\"');
-  const command = `yt-dlp --cookies "${COOKIES_FILE}" --no-warnings -j "${safeUrl}"`;
+  const command = `yt-dlp ${YT_DLP_GLOBAL_ARGS.map(a => `"${a}"`).join(' ')} -j "${safeUrl}"`;
 
   console.log(`[INFO] Fetching info for: ${url}`);
 
@@ -247,8 +264,7 @@ app.get('/api/download', (req, res) => {
   console.log(`[${mode}] Temp file: ${tempFile}`);
 
   const args = [
-    '--cookies', COOKIES_FILE,
-    '--no-warnings',
+    ...YT_DLP_GLOBAL_ARGS,
     '-f', formatArg,
     '--no-playlist',
     '--no-part',
@@ -387,7 +403,7 @@ app.get('/api/download', (req, res) => {
 
 function handleThumbnailDownload(req, res, url) {
   const safeUrl = url.replace(/"/g, '\\"');
-  const command = `yt-dlp --cookies "${COOKIES_FILE}" --no-warnings --write-thumbnail --skip-download --print thumbnail -j "${safeUrl}"`;
+  const command = `yt-dlp ${YT_DLP_GLOBAL_ARGS.map(a => `"${a}"`).join(' ')} --write-thumbnail --skip-download --print thumbnail -j "${safeUrl}"`;
 
   exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
     if (error) {
@@ -440,8 +456,7 @@ app.get('/api/download-audio', (req, res) => {
   res.setHeader('Content-Type', 'audio/mpeg');
 
   const args = [
-    '--cookies', COOKIES_FILE,
-    '--no-warnings',
+    ...YT_DLP_GLOBAL_ARGS,
     '-f', format,
     '-x',
     '--audio-format', 'mp3',
