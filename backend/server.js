@@ -24,8 +24,6 @@ const YT_DLP_GLOBAL_ARGS = [
   '--cookies', COOKIES_FILE,
   '--no-warnings',
   '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  '--extractor-args', 'youtube:player_client=web',
-  '--force-ipv4',
 ];
 
 // Middleware
