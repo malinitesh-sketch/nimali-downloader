@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nimali — YouTube Video Downloader</title>
+  <meta name="description" content="Nimali is a fast, free, and beautiful YouTube video and audio downloader. Download videos in 1080p, 720p, or extract audio as MP3." />
+  <meta name="keywords" content="YouTube downloader, video downloader, MP3, audio, Nimali" />
+  <meta name="theme-color" content="#00BFFF" />
+  <link rel="icon" type="image/png" href="/logo nimali.png" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            sky: {
+              accent: '#00BFFF',
+              'accent-hover': '#00A3D9',
+              'accent-light': '#E0F7FF',
+              'accent-glow': 'rgba(0, 191, 255, 0.12)',
+              'accent-dark': '#0097CC',
+            },
+            dark: {
+              bg: '#0D0D0D',
+              card: '#1A1A1A',
+              'card-hover': '#222222',
+              surface: '#141414',
+              border: '#2A2A2A',
+              'border-light': '#333333',
+            },
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            display: ['Outfit', 'Inter', 'sans-serif'],
+          },
+          boxShadow: {
+            glow: '0 0 20px rgba(0, 191, 255, 0.15)',
+            'glow-lg': '0 0 40px rgba(0, 191, 255, 0.2)',
+            'glow-xl': '0 0 60px rgba(0, 191, 255, 0.25)',
+            card: '0 1px 3px rgba(0,0,0,0.06), 0 6px 16px rgba(0,0,0,0.04)',
+            'card-dark': '0 1px 3px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.2)',
+            'card-hover': '0 2px 8px rgba(0,0,0,0.08), 0 12px 28px rgba(0,0,0,0.06)',
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out forwards',
+            'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
+            'fade-in-down': 'fadeInDown 0.4s ease-out forwards',
+            'slide-down': 'slideDown 0.4s ease-out forwards',
+            'slide-up': 'slideUp 0.35s ease-out forwards',
+            'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+            'spin-slow': 'spin 1.5s linear infinite',
+            'bounce-subtle': 'bounceSubtle 2s ease-in-out infinite',
+            'float': 'float 6s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            fadeInUp: {
+              '0%': { opacity: '0', transform: 'translateY(24px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            fadeInDown: {
+              '0%': { opacity: '0', transform: 'translateY(-16px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            slideDown: {
+              '0%': { opacity: '0', transform: 'translateY(-12px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            slideUp: {
+              '0%': { opacity: '0', transform: 'translateY(12px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { boxShadow: '0 0 20px rgba(0, 191, 255, 0.1)' },
+              '50%': { boxShadow: '0 0 35px rgba(0, 191, 255, 0.25)' },
+            },
+            bounceSubtle: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-4px)' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+              '33%': { transform: 'translateY(-8px) rotate(1deg)' },
+              '66%': { transform: 'translateY(4px) rotate(-1deg)' },
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Google Fonts: Inter + Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Base Resets & Custom Styles ── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+    
+    /* Smooth scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #00BFFF33; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00BFFF66; }
+
+    /* Tab indicator animation */
+    .tab-indicator {
+      transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Tab panel crossfade */
+    .tab-panel {
+      animation: tabFadeIn 0.3s ease-out;
+    }
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Skeleton loading shimmer */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    .dark .skeleton {
+      background: linear-gradient(90deg, #2a2a2a 25%, #333333 50%, #2a2a2a 75%);
+      background-size: 200% 100%;
+    }
+
+    /* Focus ring */
+    .focus-ring:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 191, 255, 0.35);
+    }
+
+    /* Animated background */
+    .bg-gradient-animated {
+      background: linear-gradient(135deg, #f8fbff 0%, #eef7ff 50%, #f0f9ff 100%);
+      position: relative;
+    }
+    .dark .bg-gradient-animated {
+      background: linear-gradient(135deg, #0D0D0D 0%, #111318 50%, #0D0D0D 100%);
+    }
+
+    /* Decorative background orbs */
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+    .dark .bg-orb { opacity: 0.15; }
+
+    /* Button press effect */
+    .btn-press:active {
+      transform: scale(0.97);
+    }
+
+    /* Download card hover lift */
+    .download-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+    }
+    .download-card:hover {
+      transform: translateY(-2px);
+    }
+
+    /* Toast notification */
+    .toast-enter { animation: toastIn 0.4s cubic-bezier(0.21, 1.02, 0.73, 1) forwards; }
+    .toast-exit { animation: toastOut 0.3s ease-in forwards; }
+    @keyframes toastIn {
+      from { transform: translateY(100%) scale(0.95); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    @keyframes toastOut {
+      from { transform: translateY(0) scale(1); opacity: 1; }
+      to { transform: translateY(100%) scale(0.95); opacity: 0; }
+    }
+
+    /* Feature card glow on hover */
+    .feature-card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 30px rgba(0, 191, 255, 0.12);
+    }
+    .dark .feature-card:hover {
+      box-shadow: 0 8px 30px rgba(0, 191, 255, 0.08);
+    }
+
+    /* Stagger children animation */
+    .stagger-children > * {
+      opacity: 0;
+      animation: fadeInUp 0.5s ease-out forwards;
+    }
+    .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+    .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+    .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+    .stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+    .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+    .stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+    .stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
+    .stagger-children > *:nth-child(8) { animation-delay: 0.4s; }
+
+    /* Recommended badge pulse */
+    @keyframes badgePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(0, 191, 255, 0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(0, 191, 255, 0); }
+    }
+    .badge-recommended {
+      animation: badgePulse 2s ease-in-out infinite;
+    }
+
+    /* Line clamp utility */
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Gradient text helper */
+    .text-gradient {
+      background: linear-gradient(135deg, #00BFFF, #00E5FF, #00BFFF);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Spinner keyframe (for Tailwind spin-slow) */
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body class="bg-gradient-animated min-h-screen transition-colors duration-300 text-gray-800 dark:text-gray-100">
+
+  <!-- ═══════════  DECORATIVE BACKGROUND ORBS  ═══════════ -->
+  <div class="bg-orb w-72 h-72 bg-sky-200 dark:bg-sky-accent top-[-80px] left-[-60px]"></div>
+  <div class="bg-orb w-96 h-96 bg-cyan-100 dark:bg-cyan-600 bottom-[10%] right-[-100px]"></div>
+  <div class="bg-orb w-64 h-64 bg-blue-100 dark:bg-blue-700 top-[50%] left-[30%]"></div>
+
+  <!-- ═══════════════════════  HEADER  ═══════════════════════ -->
+  <header id="header" class="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-dark-bg/80 border-b border-gray-100 dark:border-dark-border transition-colors duration-300">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <!-- Logo -->
+      <a href="/" id="logo-link" class="flex items-center gap-3 group select-none">
+        <img src="/logo nimali.png" alt="Nimali Logo" class="w-10 h-10 rounded-lg object-cover shadow-md group-hover:shadow-glow transition-all duration-300 group-hover:scale-105" />
+        <span class="font-display text-2xl font-bold tracking-tight text-gradient">
+          Nimali
+        </span>
+      </a>
+
+      <!-- Right side controls -->
+      <div class="flex items-center gap-3">
+        <!-- Keyboard shortcut hint -->
+        <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-card text-xs text-gray-400 dark:text-gray-500 font-mono">
+          <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border text-[10px] font-semibold">Ctrl</kbd>
+          <span>+</span>
+          <kbd class="px-1.5 py-0.5 rounded bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border text-[10px] font-semibold">K</kbd>
+          <span class="ml-1 text-gray-300 dark:text-gray-600">Focus</span>
+        </div>
+
+        <!-- Dark Mode Toggle -->
+        <button
+          id="theme-toggle"
+          aria-label="Toggle dark mode"
+          class="relative w-14 h-7 bg-gray-200 dark:bg-dark-card rounded-full p-0.5 transition-colors duration-300 focus-ring group"
+        >
+          <div id="toggle-dot" class="absolute top-0.5 left-0.5 w-6 h-6 bg-white dark:bg-sky-accent rounded-full shadow-md flex items-center justify-center transition-all duration-300 dark:translate-x-7 group-hover:shadow-glow">
+            <!-- Sun icon -->
+            <svg id="icon-sun" class="w-3.5 h-3.5 text-amber-500 dark:hidden" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+            </svg>
+            <!-- Moon icon -->
+            <svg id="icon-moon" class="w-3.5 h-3.5 text-white hidden dark:block" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+            </svg>
+          </div>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════  MAIN CONTENT  ═══════════════════════ -->
+  <main class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+
+    <!-- ── Hero / Input Section ── -->
+    <section id="hero-section" class="text-center mb-8 sm:mb-10 animate-fade-in">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-accent/10 dark:bg-sky-accent/10 text-sky-accent text-xs font-semibold mb-5 animate-bounce-subtle">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+        Fast &amp; Free — No Limits
+      </div>
+      <h1 class="font-display text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 leading-tight">
+        Download YouTube Videos
+        <br class="hidden sm:block" />
+        <span class="text-gradient">Effortlessly</span>
+      </h1>
+      <p class="text-gray-500 dark:text-gray-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
+        Paste any YouTube link to download videos, audio, or thumbnails in the highest quality — completely free.
+      </p>
+    </section>
+
+    <!-- ── Search Bar ── -->
+    <section id="search-section" class="mb-10 animate-fade-in-up" style="animation-delay: 0.1s;">
+      <div id="search-container" class="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-2 sm:p-2 bg-white dark:bg-dark-card rounded-2xl shadow-card dark:shadow-card-dark border border-gray-100 dark:border-dark-border transition-all duration-300 hover:shadow-glow focus-within:shadow-glow focus-within:border-sky-accent/30 dark:focus-within:border-sky-accent/20">
+        <!-- YouTube icon -->
+        <div class="hidden sm:flex items-center justify-center w-12 h-12 ml-1 rounded-xl bg-red-50 dark:bg-red-500/10 flex-shrink-0">
+          <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
+        </div>
+
+        <input
+          type="url"
+          id="url-input"
+          placeholder="Paste YouTube link here..."
+          autocomplete="off"
+          spellcheck="false"
+          class="flex-1 bg-transparent text-base sm:text-lg text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-2 sm:px-3 py-3 focus:outline-none font-medium min-w-0"
+        />
+
+        <!-- Clear button -->
+        <button
+          id="clear-btn"
+          class="hidden items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-surface transition-all duration-200 flex-shrink-0"
+          aria-label="Clear input"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+
+        <button
+          id="analyze-btn"
+          class="flex items-center justify-center gap-2 w-full sm:w-auto px-5 sm:px-8 py-3 bg-sky-accent hover:bg-sky-accent-hover text-white font-semibold rounded-xl transition-all duration-200 btn-press focus-ring shadow-md hover:shadow-glow whitespace-nowrap flex-shrink-0"
+        >
+          <svg id="analyze-icon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+          </svg>
+          <svg id="analyze-spinner" class="w-5 h-5 animate-spin-slow hidden" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <span id="analyze-text">Analyze</span>
+        </button>
+      </div>
+
+      <!-- Error message -->
+      <div id="error-msg" class="hidden mt-4 px-4 py-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-medium animate-slide-down" style="display: none; align-items: center; gap: 0.5rem;">
+        <svg class="flex-shrink-0" style="width: 1rem; height: 1rem; min-width: 1rem;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span id="error-text" style="flex: 1; overflow-wrap: anywhere; word-break: break-word; min-width: 0;"></span>
+      </div>
+    </section>
+
+    <!-- ── Feature Cards (visible when no results) ── -->
+    <section id="features-section" class="mb-12 animate-fade-in-up" style="animation-delay: 0.2s;">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <!-- Feature 1 -->
+        <div class="feature-card bg-white dark:bg-dark-card rounded-2xl border border-gray-100 dark:border-dark-border p-5 text-center">
+          <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-sky-accent/10 flex items-center justify-center">
+            <svg class="w-6 h-6 text-sky-accent" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+            </svg>
+          </div>
+          <h3 class="font-display font-bold text-sm mb-1 text-gray-800 dark:text-white">Multiple Formats</h3>
+          <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Download in MP4, WebM, or extract audio as MP3</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-card bg-white dark:bg-dark-card rounded-2xl border border-gray-100 dark:border-dark-border p-5 text-center">
+          <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <svg class="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+            </svg>
+          </div>
+          <h3 class="font-display font-bold text-sm mb-1 text-gray-800 dark:text-white">Safe &amp; Private</h3>
+          <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">No tracking, no ads. Your downloads stay private</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-card bg-white dark:bg-dark-card rounded-2xl border border-gray-100 dark:border-dark-border p-5 text-center">
+          <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-violet-500/10 flex items-center justify-center">
+            <svg class="w-6 h-6 text-violet-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>
+            </svg>
+          </div>
+          <h3 class="font-display font-bold text-sm mb-1 text-gray-800 dark:text-white">Lightning Fast</h3>
+          <p class="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">Direct streaming — no waiting, no file storage</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Loading Skeleton ── -->
+    <section id="loading-skeleton" class="hidden mb-10">
+      <div class="bg-white dark:bg-dark-card rounded-2xl shadow-card dark:shadow-card-dark border border-gray-100 dark:border-dark-border p-6 animate-fade-in">
+        <div class="flex flex-col sm:flex-row gap-5">
+          <div class="skeleton w-full sm:w-56 h-32 rounded-xl"></div>
+          <div class="flex-1 space-y-3">
+            <div class="skeleton h-6 w-3/4 rounded-lg"></div>
+            <div class="skeleton h-4 w-1/2 rounded-lg"></div>
+            <div class="skeleton h-4 w-1/3 rounded-lg"></div>
+            <div class="flex gap-2 mt-2">
+              <div class="skeleton h-6 w-16 rounded-full"></div>
+              <div class="skeleton h-6 w-20 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-6 space-y-3">
+          <div class="skeleton h-12 w-full rounded-xl"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="skeleton h-20 rounded-xl"></div>
+            <div class="skeleton h-20 rounded-xl"></div>
+            <div class="skeleton h-20 rounded-xl"></div>
+            <div class="skeleton h-20 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════  RESULTS  ═══════════════════════ -->
+    <section id="results-section" class="hidden">
+
+      <!-- ── Video Info Card ── -->
+      <div id="video-info" class="bg-white dark:bg-dark-card rounded-2xl shadow-card dark:shadow-card-dark border border-gray-100 dark:border-dark-border p-4 sm:p-6 mb-5 animate-fade-in-up">
+        <div class="flex flex-col sm:flex-row gap-5">
+          <!-- Thumbnail -->
+          <div class="relative w-full sm:w-64 flex-shrink-0 group">
+            <img id="video-thumbnail" src="" alt="Video thumbnail" class="w-full h-auto rounded-xl object-cover shadow-md group-hover:shadow-lg transition-shadow duration-300" />
+            <div id="video-duration-badge" class="absolute bottom-2 right-2 px-2.5 py-1 bg-black/80 text-white text-xs font-bold rounded-lg backdrop-blur-sm font-mono tracking-wide"></div>
+          </div>
+
+          <!-- Details -->
+          <div class="flex-1 min-w-0 flex flex-col">
+            <h2 id="video-title" class="font-display text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-snug mb-3 line-clamp-2"></h2>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+                </svg>
+                <span id="video-channel" class="font-medium"></span>
+              </span>
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span id="video-duration-text"></span>
+              </span>
+              <span class="flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span id="video-views"></span>
+              </span>
+            </div>
+
+            <!-- New Search button -->
+            <div class="mt-auto">
+              <button id="new-search-btn" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-sky-accent dark:hover:text-sky-accent bg-gray-50 dark:bg-dark-surface rounded-lg border border-gray-100 dark:border-dark-border hover:border-sky-accent/30 transition-all duration-200">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/>
+                </svg>
+                New Search
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Info Notice Box ── -->
+      <div id="info-notice" class="mb-5 animate-fade-in-up" style="animation-delay: 0.1s;">
+        <div style="display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.75rem; background: rgba(0, 191, 255, 0.06); border: 1px solid rgba(0, 191, 255, 0.18); border-radius: 0.75rem; max-width: 100%; overflow: hidden;">
+          <div style="flex-shrink: 0; width: 1.35rem; height: 1.35rem; margin-top: 1px; border-radius: 50%; background: rgba(0, 191, 255, 0.18); display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 0.8rem; height: 0.8rem; color: #00BFFF;" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/></svg>
+          </div>
+          <p style="flex: 1; overflow-wrap: anywhere; word-break: break-word; min-width: 0; font-size: 0.75rem; line-height: 1.5; color: #0097CC;" class="dark:text-sky-accent sm:text-sm">
+            <strong>Pro Tip:</strong> HD videos (1080p and above) are automatically merged with the best available audio track. The download may take a moment while we prepare your file.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Tabs ── -->
+      <div id="tabs-container" class="bg-white dark:bg-dark-card rounded-2xl shadow-card dark:shadow-card-dark border border-gray-100 dark:border-dark-border overflow-hidden animate-fade-in-up" style="animation-delay: 0.15s;">
+        <!-- Tab Headers -->
+        <div class="relative flex border-b border-gray-100 dark:border-dark-border">
+          <!-- Animated indicator -->
+          <div id="tab-indicator" class="tab-indicator absolute bottom-0 h-0.5 bg-sky-accent rounded-full"></div>
+
+          <button id="tab-video" data-tab="video" class="tab-btn flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-[11px] sm:text-sm font-semibold transition-colors duration-200 text-sky-accent">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+            </svg>
+            <span>Video + Audio</span>
+          </button>
+          <button id="tab-audio" data-tab="audio" class="tab-btn flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-[11px] sm:text-sm font-semibold transition-colors duration-200 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"/>
+            </svg>
+            <span>Audio Only</span>
+          </button>
+          <button id="tab-thumb" data-tab="thumb" class="tab-btn flex-1 flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-[11px] sm:text-sm font-semibold transition-colors duration-200 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/>
+            </svg>
+            <span>Thumbnail</span>
+          </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-4 sm:p-6">
+          <!-- VIDEO TAB -->
+          <div id="panel-video" class="tab-panel">
+            <div class="flex items-center justify-between mb-4">
+              <p class="text-xs text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider">Available Qualities</p>
+              <p id="video-format-count" class="text-xs text-gray-400 dark:text-gray-500"></p>
+            </div>
+            <div id="video-formats-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 stagger-children">
+              <!-- Dynamically populated -->
+            </div>
+            <p id="no-video-formats" class="hidden text-center text-gray-400 dark:text-gray-500 py-8">No video formats available for this video.</p>
+          </div>
+
+          <!-- AUDIO TAB -->
+          <div id="panel-audio" class="tab-panel hidden">
+            <div class="flex items-center justify-between mb-4">
+              <p class="text-xs text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider">Audio Formats</p>
+              <p id="audio-format-count" class="text-xs text-gray-400 dark:text-gray-500"></p>
+            </div>
+            <div id="audio-formats-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 stagger-children">
+              <!-- Dynamically populated -->
+            </div>
+            <p id="no-audio-formats" class="hidden text-center text-gray-400 dark:text-gray-500 py-8">No audio formats available for this video.</p>
+          </div>
+
+          <!-- THUMBNAIL TAB -->
+          <div id="panel-thumb" class="tab-panel hidden">
+            <div class="flex flex-col items-center gap-6 py-2">
+              <div class="relative group w-full max-w-lg">
+                <img id="thumb-preview" src="" alt="Thumbnail preview" class="w-full rounded-xl shadow-lg group-hover:shadow-xl transition-shadow duration-300" />
+                <div class="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-all duration-300 flex items-center justify-center">
+                  <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 dark:bg-dark-card/90 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg">
+                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Click below to download</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col sm:flex-row items-center gap-3">
+                <a
+                  id="thumb-download-btn"
+                  href="#"
+                  target="_blank"
+                  download
+                  class="inline-flex items-center gap-2.5 px-8 py-3.5 bg-sky-accent hover:bg-sky-accent-hover text-white font-semibold rounded-xl transition-all duration-200 btn-press shadow-md hover:shadow-glow"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                  </svg>
+                  Download HD Thumbnail
+                </a>
+                <span class="text-xs text-gray-400 dark:text-gray-500">JPG / PNG • Max Resolution</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Recent Downloads (History) ── -->
+    <section id="history-section" class="hidden mt-8 animate-fade-in-up">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Recent Searches
+        </h3>
+        <button id="clear-history-btn" class="text-xs text-gray-400 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors font-medium">Clear</button>
+      </div>
+      <div id="history-list" class="flex flex-wrap gap-2">
+        <!-- Dynamically populated -->
+      </div>
+    </section>
+
+    <!-- ── Footer ── -->
+    <footer class="mt-16 mb-8 text-center space-y-4">
+      <div class="flex items-center justify-center gap-4 text-gray-300 dark:text-gray-700">
+        <div class="h-px flex-1 max-w-[80px] bg-gray-200 dark:bg-dark-border"></div>
+        <img src="/logo nimali.png" alt="Nimali" class="w-6 h-6 rounded-md opacity-40" />
+        <div class="h-px flex-1 max-w-[80px] bg-gray-200 dark:bg-dark-border"></div>
+      </div>
+      <p class="text-xs text-gray-400 dark:text-gray-600">
+        Powered by <span class="font-semibold text-gradient">Nimali</span> &mdash; Free &amp; Open Source YouTube Downloader
+      </p>
+      <div class="flex items-center justify-center gap-3 text-[10px] text-gray-300 dark:text-gray-700 font-medium uppercase tracking-widest">
+        <span>No Ads</span>
+        <span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700"></span>
+        <span>No Tracking</span>
+        <span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700"></span>
+        <span>No Limits</span>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ═══════════════════════  TOAST CONTAINER  ═══════════════════════ -->
+  <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ═══════════════════════  JAVASCRIPT  ═══════════════════════ -->
+  <script>
+    // ─── DOM Helpers ─────────────────────────────────────────
+    const $ = (id) => document.getElementById(id);
+    const themeToggle = $('theme-toggle');
+    const urlInput = $('url-input');
+    const clearBtn = $('clear-btn');
+    const analyzeBtn = $('analyze-btn');
+    const analyzeIcon = $('analyze-icon');
+    const analyzeSpinner = $('analyze-spinner');
+    const analyzeText = $('analyze-text');
+    const errorMsg = $('error-msg');
+    const errorText = $('error-text');
+    const loadingSkeleton = $('loading-skeleton');
+    const resultsSection = $('results-section');
+    const featuresSection = $('features-section');
+    const historySection = $('history-section');
+
+    let currentVideoData = null;
+    let currentUrl = '';
+
+    // ─── Dark Mode ───────────────────────────────────────────
+    function initTheme() {
+      const saved = localStorage.getItem('nimali-theme');
+      if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    }
+    initTheme();
+
+    themeToggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+      const isDark = document.documentElement.classList.contains('dark');
+      localStorage.setItem('nimali-theme', isDark ? 'dark' : 'light');
+    });
+
+    // ─── Clear Input Button ─────────────────────────────────
+    urlInput.addEventListener('input', () => {
+      clearBtn.classList.toggle('hidden', !urlInput.value);
+      clearBtn.classList.toggle('flex', !!urlInput.value);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      urlInput.value = '';
+      clearBtn.classList.add('hidden');
+      clearBtn.classList.remove('flex');
+      urlInput.focus();
+    });
+
+    // ─── Toast Notification System ──────────────────────────
+    function showToast(message, type = 'info', duration = 4000) {
+      const container = $('toast-container');
+      const toast = document.createElement('div');
+
+      const colors = {
+        info: 'bg-sky-accent text-white',
+        success: 'bg-emerald-500 text-white',
+        error: 'bg-red-500 text-white',
+        warning: 'bg-amber-500 text-white',
+      };
+
+      const icons = {
+        info: '<path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>',
+        success: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+        error: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>',
+        warning: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>',
+      };
+
+      toast.className = `pointer-events-auto toast-enter flex items-center gap-2.5 px-5 py-3 rounded-xl shadow-lg ${colors[type]} text-sm font-medium max-w-sm`;
+      toast.style.overflowWrap = 'anywhere';
+      toast.innerHTML = `
+        <svg style="flex-shrink:0; width:1.125rem; height:1.125rem; min-width:1.125rem;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">${icons[type]}</svg>
+        <span style="flex:1; overflow-wrap:anywhere; word-break:break-word; min-width:0;">${message}</span>
+      `;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('toast-enter');
+        toast.classList.add('toast-exit');
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+    }
+
+    // ─── Search History ─────────────────────────────────────
+    function getHistory() {
+      try {
+        return JSON.parse(localStorage.getItem('nimali-history') || '[]');
+      } catch { return []; }
+    }
+
+    function saveToHistory(title, url, thumbnail) {
+      const history = getHistory();
+      // Remove duplicate
+      const filtered = history.filter(h => h.url !== url);
+      filtered.unshift({ title: title.substring(0, 60), url, thumbnail, time: Date.now() });
+      // Keep max 8
+      localStorage.setItem('nimali-history', JSON.stringify(filtered.slice(0, 8)));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const history = getHistory();
+      if (history.length === 0) {
+        historySection.classList.add('hidden');
+        return;
+      }
+
+      // Only show history when results are not visible
+      if (!resultsSection.classList.contains('hidden')) {
+        historySection.classList.add('hidden');
+        return;
+      }
+
+      historySection.classList.remove('hidden');
+      const list = $('history-list');
+      list.innerHTML = '';
+
+      history.forEach((item) => {
+        const chip = document.createElement('button');
+        chip.className = 'flex items-center gap-2 px-3 py-2 bg-white dark:bg-dark-card rounded-xl border border-gray-100 dark:border-dark-border hover:border-sky-accent/30 dark:hover:border-sky-accent/20 transition-all duration-200 text-left group max-w-[250px]';
+        chip.innerHTML = `
+          ${item.thumbnail ? `<img src="${item.thumbnail}" alt="" class="w-8 h-5 rounded object-cover flex-shrink-0" />` : ''}
+          <span class="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-sky-accent truncate transition-colors">${item.title}</span>
+        `;
+        chip.addEventListener('click', () => {
+          urlInput.value = item.url;
+          clearBtn.classList.remove('hidden');
+          clearBtn.classList.add('flex');
+          analyzeVideo();
+        });
+        list.appendChild(chip);
+      });
+    }
+
+    $('clear-history-btn').addEventListener('click', () => {
+      localStorage.removeItem('nimali-history');
+      historySection.classList.add('hidden');
+      showToast('Search history cleared', 'success', 2500);
+    });
+
+    // Render on page load
+    renderHistory();
+
+    // ─── Tabs ────────────────────────────────────────────────
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    const tabIndicator = $('tab-indicator');
+
+    function switchTab(tabName) {
+      tabBtns.forEach((btn) => {
+        const isActive = btn.dataset.tab === tabName;
+        btn.classList.toggle('text-sky-accent', isActive);
+        btn.classList.toggle('text-gray-400', !isActive);
+        btn.classList.toggle('dark:text-gray-500', !isActive);
+      });
+
+      tabPanels.forEach((panel) => {
+        const shouldShow = panel.id.includes(tabName);
+        if (shouldShow) {
+          panel.classList.remove('hidden');
+          // Re-trigger animation
+          panel.style.animation = 'none';
+          panel.offsetHeight; // Force reflow
+          panel.style.animation = '';
+        } else {
+          panel.classList.add('hidden');
+        }
+      });
+
+      // Move indicator
+      const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+      if (activeBtn) {
+        const rect = activeBtn.getBoundingClientRect();
+        const parentRect = activeBtn.parentElement.getBoundingClientRect();
+        tabIndicator.style.left = `${rect.left - parentRect.left}px`;
+        tabIndicator.style.width = `${rect.width}px`;
+      }
+    }
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    function initTabIndicator() {
+      requestAnimationFrame(() => switchTab('video'));
+    }
+
+    // Re-calc on resize
+    window.addEventListener('resize', () => {
+      const activeTab = document.querySelector('.tab-btn.text-sky-accent');
+      if (activeTab) switchTab(activeTab.dataset.tab);
+    });
+
+    // ─── New Search ─────────────────────────────────────────
+    $('new-search-btn').addEventListener('click', () => {
+      resultsSection.classList.add('hidden');
+      featuresSection.classList.remove('hidden');
+      urlInput.value = '';
+      clearBtn.classList.add('hidden');
+      clearBtn.classList.remove('flex');
+      urlInput.focus();
+      renderHistory();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // ─── Analyze ─────────────────────────────────────────────
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorMsg.style.display = 'flex';
+      errorMsg.classList.remove('hidden');
+      setTimeout(() => {
+        errorMsg.style.display = 'none';
+        errorMsg.classList.add('hidden');
+      }, 6000);
+    }
+
+    function hideError() {
+      errorMsg.style.display = 'none';
+      errorMsg.classList.add('hidden');
+    }
+
+    function setLoading(loading) {
+      analyzeBtn.disabled = loading;
+      analyzeIcon.classList.toggle('hidden', loading);
+      analyzeSpinner.classList.toggle('hidden', !loading);
+      analyzeText.textContent = loading ? 'Analyzing...' : 'Analyze';
+      analyzeBtn.classList.toggle('opacity-75', loading);
+      analyzeBtn.classList.toggle('cursor-not-allowed', loading);
+      loadingSkeleton.classList.toggle('hidden', !loading);
+      if (loading) {
+        resultsSection.classList.add('hidden');
+        featuresSection.classList.add('hidden');
+        historySection.classList.add('hidden');
+      }
+    }
+
+    function isYouTubeUrl(url) {
+      return /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/|m\.youtube\.com\/)/i.test(url);
+    }
+
+    function formatViews(count) {
+      if (!count) return '0 views';
+      if (count >= 1_000_000_000) return `${(count / 1_000_000_000).toFixed(1)}B views`;
+      if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M views`;
+      if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K views`;
+      return `${count.toLocaleString()} views`;
+    }
+
+    async function analyzeVideo() {
+      hideError();
+      const url = urlInput.value.trim();
+
+      if (!url) {
+        showError('Please paste a YouTube URL to get started.');
+        urlInput.focus();
+        return;
+      }
+
+      if (!isYouTubeUrl(url)) {
+        showError("That doesn't look like a valid YouTube URL. Please check and try again.");
+        return;
+      }
+
+      currentUrl = url;
+      setLoading(true);
+
+      try {
+        const response = await fetch('/api/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to analyze video.');
+        }
+
+        currentVideoData = data;
+        saveToHistory(data.title, url, data.thumbnail);
+        renderResults(data);
+        showToast(`Found "${data.title.substring(0, 40)}..."`, 'success', 3000);
+      } catch (err) {
+        showError(err.message || 'Something went wrong. Please check the URL and try again.');
+        setLoading(false);
+        featuresSection.classList.remove('hidden');
+        renderHistory();
+      }
+    }
+
+    analyzeBtn.addEventListener('click', analyzeVideo);
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') analyzeVideo();
+    });
+
+    // ─── Render Results ──────────────────────────────────────
+    function renderResults(data) {
+      setLoading(false);
+
+      // Video info
+      $('video-thumbnail').src = data.thumbnail || '';
+      $('video-title').textContent = data.title;
+      $('video-duration-badge').textContent = data.duration;
+      $('video-channel').textContent = data.channel;
+      $('video-duration-text').textContent = data.duration;
+      $('video-views').textContent = formatViews(data.view_count);
+
+      // Thumbnail tab
+      $('thumb-preview').src = data.thumbnail || '';
+      $('thumb-download-btn').href = data.thumbnail || '#';
+
+      // Video formats
+      const videoGrid = $('video-formats-grid');
+      const noVideo = $('no-video-formats');
+      videoGrid.innerHTML = '';
+
+      if (data.videoFormats && data.videoFormats.length > 0) {
+        noVideo.classList.add('hidden');
+        $('video-format-count').textContent = `${data.videoFormats.length} formats`;
+        data.videoFormats.forEach((fmt, index) => {
+          videoGrid.appendChild(createVideoCard(fmt, index === 0, data.title));
+        });
+      } else {
+        noVideo.classList.remove('hidden');
+        $('video-format-count').textContent = '';
+      }
+
+      // Audio formats
+      const audioGrid = $('audio-formats-grid');
+      const noAudio = $('no-audio-formats');
+      audioGrid.innerHTML = '';
+
+      if (data.audioFormats && data.audioFormats.length > 0) {
+        noAudio.classList.add('hidden');
+        $('audio-format-count').textContent = `${data.audioFormats.length} formats`;
+        data.audioFormats.forEach((fmt, index) => {
+          audioGrid.appendChild(createAudioCard(fmt, index === 0, data.title));
+        });
+      } else {
+        noAudio.classList.remove('hidden');
+        $('audio-format-count').textContent = '';
+      }
+
+      // Show results, hide features
+      resultsSection.classList.remove('hidden');
+      featuresSection.classList.add('hidden');
+      historySection.classList.add('hidden');
+      initTabIndicator();
+
+      // Scroll to results smoothly
+      setTimeout(() => {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+
+    // ─── Video Format Card ───────────────────────────────────
+    function createVideoCard(fmt, isFirst, title) {
+      const card = document.createElement('button');
+      card.className = `download-card group w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-surface rounded-xl border border-gray-100 dark:border-dark-border hover:border-sky-accent/40 dark:hover:border-sky-accent/30 hover:bg-sky-accent-glow dark:hover:bg-sky-accent/5 transition-all duration-200 focus-ring btn-press text-left`;
+
+      const resLabel = fmt.resolution || 'Unknown';
+      const qualityIcon = getQualityIcon(fmt.height);
+      const recommendedBadge = isFirst ? `<span class="badge-recommended text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-accent text-white uppercase tracking-wider">Best</span>` : '';
+
+      card.innerHTML = `
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="flex items-center justify-center w-11 h-11 rounded-xl ${isFirst ? 'bg-sky-accent/15 ring-1 ring-sky-accent/20' : 'bg-sky-accent/10'} text-sky-accent flex-shrink-0">
+            ${qualityIcon}
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="font-bold text-gray-800 dark:text-white text-sm">${resLabel}</span>
+              ${fmt.fps ? `<span class="text-[11px] text-gray-400 dark:text-gray-500">${fmt.fps}fps</span>` : ''}
+              ${recommendedBadge}
+            </div>
+            <span class="text-xs text-gray-400 dark:text-gray-500">${fmt.ext || 'MP4'} · ${fmt.filesize || 'Unknown size'} ${fmt.has_audio ? '' : '· No Audio'}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+          <div class="w-8 h-8 rounded-lg bg-sky-accent/0 group-hover:bg-sky-accent/10 flex items-center justify-center transition-colors duration-200">
+            <svg class="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-sky-accent transition-colors" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+            </svg>
+          </div>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        downloadFile(currentUrl, fmt.format_id, title, 'video');
+        showToast(`Starting ${resLabel} download...`, 'info', 3000);
+      });
+
+      return card;
+    }
+
+    // ─── Audio Format Card ───────────────────────────────────
+    function createAudioCard(fmt, isFirst, title) {
+      const card = document.createElement('button');
+      card.className = `download-card group w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-surface rounded-xl border border-gray-100 dark:border-dark-border hover:border-sky-accent/40 dark:hover:border-sky-accent/30 hover:bg-sky-accent-glow dark:hover:bg-sky-accent/5 transition-all duration-200 focus-ring btn-press text-left`;
+
+      const recommendedBadge = isFirst ? `<span class="badge-recommended text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-accent text-white uppercase tracking-wider">Best</span>` : '';
+
+      card.innerHTML = `
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="flex items-center justify-center w-11 h-11 rounded-xl ${isFirst ? 'bg-violet-500/15 ring-1 ring-violet-500/20' : 'bg-violet-500/10'} text-violet-500 flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="font-bold text-gray-800 dark:text-white text-sm">${fmt.quality}</span>
+              ${recommendedBadge}
+            </div>
+            <span class="text-xs text-gray-400 dark:text-gray-500">${fmt.ext || 'MP3'} · ${fmt.bitrate} · ${fmt.filesize || 'Unknown size'}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+          <div class="w-8 h-8 rounded-lg bg-violet-500/0 group-hover:bg-violet-500/10 flex items-center justify-center transition-colors duration-200">
+            <svg class="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-violet-500 transition-colors" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+            </svg>
+          </div>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        downloadFile(currentUrl, fmt.format_id, title, 'audio');
+        showToast(`Starting audio download...`, 'info', 3000);
+      });
+
+      return card;
+    }
+
+    // ─── Quality Icon Helper ─────────────────────────────────
+    function getQualityIcon(height) {
+      if (height >= 2160) {
+        return `<span class="text-xs font-black tracking-tighter">4K</span>`;
+      }
+      if (height >= 1440) {
+        return `<span class="text-xs font-black tracking-tighter">2K</span>`;
+      }
+      if (height >= 1080) {
+        return `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.79M12 12.75h.008v.008H12v-.008z"/></svg>`;
+      }
+      return `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>`;
+    }
+
+    // ─── Download ────────────────────────────────────────────
+    function downloadFile(url, formatId, title, type) {
+      const safeName = (title || 'nimali-download').replace(/[^a-zA-Z0-9 _-]/g, '').substring(0, 80);
+      const endpoint = type === 'audio' ? '/api/download-audio' : '/api/download';
+      const params = new URLSearchParams({ url, format: formatId, filename: safeName });
+      const downloadUrl = `${endpoint}?${params.toString()}`;
+
+      // Native browser download — no fetch/blob, no target="_blank"
+      // This lets the browser handle Content-Disposition: attachment natively
+      window.location.href = downloadUrl;
+    }
+
+    // ─── Keyboard Shortcuts ─────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + K → focus input
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        urlInput.focus();
+        urlInput.select();
+      }
+      // Escape → clear/blur
+      if (e.key === 'Escape' && document.activeElement === urlInput) {
+        urlInput.blur();
+      }
+    });
+
+    // ─── Auto-paste from clipboard ──────────────────────────
+    urlInput.addEventListener('focus', async () => {
+      if (urlInput.value) return;
+      try {
+        const text = await navigator.clipboard.readText();
+        if (isYouTubeUrl(text)) {
+          urlInput.value = text;
+          urlInput.select();
+          clearBtn.classList.remove('hidden');
+          clearBtn.classList.add('flex');
+          showToast('YouTube link detected in clipboard!', 'info', 2500);
+        }
+      } catch {
+        // Clipboard permission denied — no-op
+      }
+    });
+
+    // ─── URL Input Paste Event ──────────────────────────────
+    urlInput.addEventListener('paste', () => {
+      setTimeout(() => {
+        clearBtn.classList.toggle('hidden', !urlInput.value);
+        clearBtn.classList.toggle('flex', !!urlInput.value);
+      }, 10);
+    });
+  </script>
+</body>
+</html>
