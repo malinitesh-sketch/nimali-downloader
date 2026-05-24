@@ -624,6 +624,9 @@
 
   <!-- ═══════════════════════  JAVASCRIPT  ═══════════════════════ -->
   <script>
+    // ─── API Base URL ────────────────────────────────────────
+    const API_BASE = 'https://nimali-downloader.onrender.com';
+
     // ─── DOM Helpers ─────────────────────────────────────────
     const $ = (id) => document.getElementById(id);
     const themeToggle = $('theme-toggle');
@@ -890,7 +893,7 @@
       setLoading(true);
 
       try {
-        const response = await fetch('/api/info', {
+        const response = await fetch(`${API_BASE}/api/info`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url }),
@@ -1073,7 +1076,7 @@
     // ─── Download (Non-blocking with localized button state) ──
     function downloadFile(url, formatId, title, type, hasAudio, buttonEl) {
       const safeName = (title || 'nimali-download').replace(/[^a-zA-Z0-9 _-]/g, '').substring(0, 80);
-      const endpoint = type === 'audio' ? '/api/download-audio' : '/api/download';
+      const endpoint = type === 'audio' ? `${API_BASE}/api/download-audio` : `${API_BASE}/api/download`;
       const params = new URLSearchParams({ url, format: formatId, filename: safeName });
       if (type !== 'audio') params.set('hasAudio', hasAudio ? 'true' : 'false');
       const downloadUrl = `${endpoint}?${params.toString()}`;
