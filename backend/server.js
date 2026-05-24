@@ -273,12 +273,17 @@ app.get('/api/download', (req, res) => {
     req.on('close', () => { if (!ytdlp.killed) ytdlp.kill('SIGTERM'); });
 
   } else {
-    // ── MERGE REQUIRED — download + merge via ffmpeg-static ──
-    console.log(`[MERGE] Starting: format=${format}+bestaudio, url=${url}`);
-    console.log(`[MERGE] Using ffmpeg at: ${ffmpegPath}`);
+    // ══════════════════════════════════════════════════════════════
+    // MERGE REQUIRED — download + merge via ffmpeg-static
+    // Strict rules: wait for code===0, set Content-Length, stream via pipe
+    // ══════════════════════════════════════════════════════════════
 
-    const tempId = crypto.randomUUID();
-    const tempFile = path.join(TEMP_DIR, `${tempId}.mp4`);
+    // 1. Unique temp filename (Date.now + random suffix to prevent collisions)
+    const tempFileName = `nimali_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp4`;
+    const tempFile = path.join(TEMP_DIR, tempFileName);
+
+    console.log(`[MERGE] Starting: format=${format}+bestaudio, url=${url}`);
+    console.log(`[MERGE] ffmpeg: ${ffmpegPath}`);
     console.log(`[MERGE] Temp file: ${tempFile}`);
 
     const args = [
@@ -286,78 +291,145 @@ app.get('/api/download', (req, res) => {
       '--merge-output-format', 'mp4',
       '--ffmpeg-location', ffmpegPath,
       '--no-playlist',
+      '--no-part',            // Write directly to final file, no .part files
       '-o', tempFile,
       url,
     ];
 
     const ytdlp = spawn('yt-dlp', args);
     let stderrOutput = '';
-    let isClientDisconnected = false;
+    let isAborted = false;
+
+    // Helper: safely delete the temp file
+    function cleanupTempFile() {
+      try {
+        if (fs.existsSync(tempFile)) {
+          fs.unlinkSync(tempFile);
+          console.log(`[MERGE] Temp file cleaned up: ${tempFileName}`);
+        }
+      } catch (e) {
+        console.error(`[MERGE] Cleanup error: ${e.message}`);
+      }
+    }
 
     ytdlp.stderr.on('data', (data) => {
       const msg = data.toString();
       stderrOutput += msg;
-      console.error(`[MERGE STDERR] ${msg.trim()}`);
+      // Only log non-progress lines to reduce noise
+      const trimmed = msg.trim();
+      if (trimmed && !trimmed.startsWith('[download]')) {
+        console.error(`[MERGE STDERR] ${trimmed}`);
+      }
     });
 
     ytdlp.on('error', (err) => {
-      console.error(`[MERGE ERROR] ${err.message}`);
-      fs.unlink(tempFile, () => {});
+      console.error(`[MERGE] Spawn error: ${err.message}`);
+      cleanupTempFile();
       if (!res.headersSent) {
         res.status(500).json({ error: 'Download failed. yt-dlp may not be installed.' });
       }
     });
 
+    // 2. STRICT PROCESS WAIT — only proceed when code === 0
     ytdlp.on('close', (code) => {
-      if (isClientDisconnected) {
-        console.log('[MERGE] Client disconnected, cleaning up.');
-        fs.unlink(tempFile, () => {});
+      // If user already disconnected, just clean up silently
+      if (isAborted) {
+        console.log('[MERGE] Aborted by client. Cleaning up.');
+        cleanupTempFile();
         return;
       }
 
+      // ── Merge failed ──
       if (code !== 0) {
         console.error(`[MERGE] yt-dlp exited with code ${code}`);
-        fs.unlink(tempFile, () => {});
+        cleanupTempFile();
         if (!res.headersSent) {
           res.status(500).json({
-            error: 'Merge failed. The format may be unavailable.',
+            error: 'Merge failed. The video format may be unavailable.',
             details: stderrOutput.slice(-500),
           });
         }
         return;
       }
 
+      // ── Verify the file actually exists ──
       if (!fs.existsSync(tempFile)) {
-        console.error('[MERGE] Temp file not found.');
+        console.error('[MERGE] yt-dlp exited 0 but temp file is missing.');
         if (!res.headersSent) {
-          res.status(500).json({ error: 'Merge completed but file not found.' });
+          res.status(500).json({ error: 'Merge completed but output file not found.' });
         }
         return;
       }
 
-      console.log('[MERGE] Complete. Sending file...');
+      // 3. GET EXACT FILE SIZE (CRITICAL for preventing partial downloads)
+      let fileSize;
+      try {
+        const stat = fs.statSync(tempFile);
+        fileSize = stat.size;
+      } catch (e) {
+        console.error(`[MERGE] Cannot stat file: ${e.message}`);
+        cleanupTempFile();
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to read merged file.' });
+        }
+        return;
+      }
+
+      if (fileSize === 0) {
+        console.error('[MERGE] Merged file is 0 bytes.');
+        cleanupTempFile();
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Merge produced an empty file.' });
+        }
+        return;
+      }
+
+      console.log(`[MERGE] Complete. File size: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
+
+      // ── Set ALL headers BEFORE streaming ──
       res.header('Content-Disposition', `attachment; filename="${safeName}.mp4"`);
       res.header('Content-Type', 'video/mp4');
+      res.header('Content-Length', fileSize);    // ← CRITICAL: browser knows exact expected size
+      res.header('Accept-Ranges', 'none');       // Prevent partial/range requests on temp file
 
-      res.download(tempFile, `${safeName}.mp4`, (err) => {
-        fs.unlink(tempFile, (unlinkErr) => {
-          if (unlinkErr) console.error(`[MERGE] Cleanup failed: ${unlinkErr.message}`);
-          else console.log('[MERGE] Temp file cleaned up.');
-        });
-        if (err && !res.headersSent) {
-          console.error(`[MERGE] Send error: ${err.message}`);
-        } else if (!err) {
-          console.log('[MERGE] File sent successfully.');
+      // 4. ROBUST STREAMING via createReadStream → pipe
+      const readStream = fs.createReadStream(tempFile);
+
+      readStream.on('error', (err) => {
+        console.error(`[MERGE] Read stream error: ${err.message}`);
+        cleanupTempFile();
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to stream the merged file.' });
+        } else {
+          res.end();
         }
       });
+
+      // 5. AUTO CLEANUP — delete temp file when stream finishes or errors
+      readStream.on('end', () => {
+        console.log(`[MERGE] Stream complete. Sent ${(fileSize / 1024 / 1024).toFixed(2)} MB.`);
+      });
+
+      readStream.on('close', () => {
+        // Stream closed (either completed or user cancelled) — always clean up
+        cleanupTempFile();
+      });
+
+      // Pipe the fully-merged file to the response
+      readStream.pipe(res);
     });
 
+    // Handle client disconnect DURING merge (before streaming starts)
     req.on('close', () => {
-      if (!ytdlp.killed) {
-        isClientDisconnected = true;
+      if (!ytdlp.killed && ytdlp.exitCode === null) {
+        // yt-dlp is still running — user cancelled during merge
+        isAborted = true;
         ytdlp.kill('SIGTERM');
-        setTimeout(() => fs.unlink(tempFile, () => {}), 2000);
+        console.log('[MERGE] Client disconnected during merge. Killing yt-dlp...');
+        // Give yt-dlp a moment to die, then force cleanup
+        setTimeout(() => cleanupTempFile(), 3000);
       }
+      // If yt-dlp already finished and we're streaming, the readStream 'close' event handles cleanup
     });
   }
 });
