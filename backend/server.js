@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
+const ffmpegPath = require('ffmpeg-static');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -207,10 +208,10 @@ try {
   }
 } catch (e) { /* ignore */ }
 
-// ─── Endpoint 2: /api/download ──────────────────────────────────────────────
+// ─── Endpoint 2: /api/download (Smart Route) ───────────────────────────────
 
 app.get('/api/download', (req, res) => {
-  const { url, format, filename } = req.query;
+  const { url, format, filename, hasAudio } = req.query;
 
   if (!url || !format) {
     return res.status(400).json({ error: 'Both url and format query parameters are required.' });
@@ -225,95 +226,140 @@ app.get('/api/download', (req, res) => {
   }
 
   const safeName = (filename || 'nimali-download').replace(/[^a-zA-Z0-9_\-. ]/g, '_');
-  const tempId = crypto.randomUUID();
-  const tempFile = path.join(TEMP_DIR, `${tempId}.mp4`);
 
-  console.log(`[DOWNLOAD] Starting merged download: format=${format}+bestaudio, url=${url}`);
-  console.log(`[DOWNLOAD] Temp file: ${tempFile}`);
+  // ═══════════════════════════════════════════════════════════
+  // SMART ROUTE: Choose streaming vs merging based on format
+  // ═══════════════════════════════════════════════════════════
 
-  // Merge video + best available audio into a temporary file
-  const args = [
-    '-f', `${format}+bestaudio/best`,
-    '--merge-output-format', 'mp4',
-    '--no-playlist',
-    '-o', tempFile,
-    url,
-  ];
+  if (hasAudio === 'true') {
+    // ── DIRECT STREAM — format already has video + audio ──
+    console.log(`[DOWNLOAD] Direct streaming: format=${format}, url=${url}`);
 
-  const ytdlp = spawn('yt-dlp', args);
-  let stderrOutput = '';
-  let isClientDisconnected = false;
-
-  ytdlp.stderr.on('data', (data) => {
-    const msg = data.toString();
-    stderrOutput += msg;
-    console.error(`[DOWNLOAD STDERR] ${msg.trim()}`);
-  });
-
-  ytdlp.on('error', (err) => {
-    console.error(`[DOWNLOAD ERROR] Spawn error: ${err.message}`);
-    fs.unlink(tempFile, () => {});
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Download failed. yt-dlp may not be installed.' });
-    }
-  });
-
-  ytdlp.on('close', (code) => {
-    if (isClientDisconnected) {
-      console.log('[DOWNLOAD] Client disconnected, cleaning up.');
-      fs.unlink(tempFile, () => {});
-      return;
-    }
-
-    if (code !== 0) {
-      console.error(`[DOWNLOAD] yt-dlp exited with code ${code}`);
-      fs.unlink(tempFile, () => {});
-      if (!res.headersSent) {
-        res.status(500).json({
-          error: 'Download failed. The format may be unavailable.',
-          details: stderrOutput.slice(-500),
-        });
-      }
-      return;
-    }
-
-    // Verify the temp file exists
-    if (!fs.existsSync(tempFile)) {
-      console.error('[DOWNLOAD] Temp file not found after yt-dlp completed.');
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Download completed but file not found.' });
-      }
-      return;
-    }
-
-    console.log(`[DOWNLOAD] Merge complete. Sending file to user...`);
-
-    // Set explicit headers and send the merged file
     res.header('Content-Disposition', `attachment; filename="${safeName}.mp4"`);
     res.header('Content-Type', 'video/mp4');
-    res.download(tempFile, `${safeName}.mp4`, (err) => {
-      // Always delete the temp file after sending
-      fs.unlink(tempFile, (unlinkErr) => {
-        if (unlinkErr) console.error(`[DOWNLOAD] Cleanup failed: ${unlinkErr.message}`);
-        else console.log('[DOWNLOAD] Temp file cleaned up successfully.');
-      });
 
-      if (err && !res.headersSent) {
-        console.error(`[DOWNLOAD] Send error: ${err.message}`);
-      } else if (!err) {
-        console.log('[DOWNLOAD] File sent successfully.');
+    const args = [
+      '-f', format,
+      '-o', '-',
+      '--no-playlist',
+      url,
+    ];
+
+    const ytdlp = spawn('yt-dlp', args);
+    ytdlp.stdout.pipe(res);
+
+    ytdlp.stderr.on('data', (data) => {
+      console.error(`[STREAM STDERR] ${data.toString().trim()}`);
+    });
+
+    ytdlp.on('error', (err) => {
+      console.error(`[STREAM ERROR] ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Download failed. yt-dlp may not be installed.' });
       }
     });
-  });
 
-  // Handle client disconnect — kill yt-dlp and clean up
-  req.on('close', () => {
-    if (!ytdlp.killed) {
-      isClientDisconnected = true;
-      ytdlp.kill('SIGTERM');
-      setTimeout(() => fs.unlink(tempFile, () => {}), 2000);
-    }
-  });
+    ytdlp.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`[STREAM] yt-dlp exited with code ${code}`);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Streaming download failed.' });
+        }
+      } else {
+        console.log('[STREAM] Completed successfully.');
+      }
+    });
+
+    req.on('close', () => { if (!ytdlp.killed) ytdlp.kill('SIGTERM'); });
+
+  } else {
+    // ── MERGE REQUIRED — download + merge via ffmpeg-static ──
+    console.log(`[MERGE] Starting: format=${format}+bestaudio, url=${url}`);
+    console.log(`[MERGE] Using ffmpeg at: ${ffmpegPath}`);
+
+    const tempId = crypto.randomUUID();
+    const tempFile = path.join(TEMP_DIR, `${tempId}.mp4`);
+    console.log(`[MERGE] Temp file: ${tempFile}`);
+
+    const args = [
+      '-f', `${format}+bestaudio/best`,
+      '--merge-output-format', 'mp4',
+      '--ffmpeg-location', ffmpegPath,
+      '--no-playlist',
+      '-o', tempFile,
+      url,
+    ];
+
+    const ytdlp = spawn('yt-dlp', args);
+    let stderrOutput = '';
+    let isClientDisconnected = false;
+
+    ytdlp.stderr.on('data', (data) => {
+      const msg = data.toString();
+      stderrOutput += msg;
+      console.error(`[MERGE STDERR] ${msg.trim()}`);
+    });
+
+    ytdlp.on('error', (err) => {
+      console.error(`[MERGE ERROR] ${err.message}`);
+      fs.unlink(tempFile, () => {});
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Download failed. yt-dlp may not be installed.' });
+      }
+    });
+
+    ytdlp.on('close', (code) => {
+      if (isClientDisconnected) {
+        console.log('[MERGE] Client disconnected, cleaning up.');
+        fs.unlink(tempFile, () => {});
+        return;
+      }
+
+      if (code !== 0) {
+        console.error(`[MERGE] yt-dlp exited with code ${code}`);
+        fs.unlink(tempFile, () => {});
+        if (!res.headersSent) {
+          res.status(500).json({
+            error: 'Merge failed. The format may be unavailable.',
+            details: stderrOutput.slice(-500),
+          });
+        }
+        return;
+      }
+
+      if (!fs.existsSync(tempFile)) {
+        console.error('[MERGE] Temp file not found.');
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Merge completed but file not found.' });
+        }
+        return;
+      }
+
+      console.log('[MERGE] Complete. Sending file...');
+      res.header('Content-Disposition', `attachment; filename="${safeName}.mp4"`);
+      res.header('Content-Type', 'video/mp4');
+
+      res.download(tempFile, `${safeName}.mp4`, (err) => {
+        fs.unlink(tempFile, (unlinkErr) => {
+          if (unlinkErr) console.error(`[MERGE] Cleanup failed: ${unlinkErr.message}`);
+          else console.log('[MERGE] Temp file cleaned up.');
+        });
+        if (err && !res.headersSent) {
+          console.error(`[MERGE] Send error: ${err.message}`);
+        } else if (!err) {
+          console.log('[MERGE] File sent successfully.');
+        }
+      });
+    });
+
+    req.on('close', () => {
+      if (!ytdlp.killed) {
+        isClientDisconnected = true;
+        ytdlp.kill('SIGTERM');
+        setTimeout(() => fs.unlink(tempFile, () => {}), 2000);
+      }
+    });
+  }
 });
 
 // ─── Thumbnail Download Handler ─────────────────────────────────────────────

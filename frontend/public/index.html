@@ -1012,8 +1012,7 @@
       `;
 
       card.addEventListener('click', () => {
-        downloadFile(currentUrl, fmt.format_id, title, 'video');
-        showToast(`Starting ${resLabel} download...`, 'info', 3000);
+        downloadFile(currentUrl, fmt.format_id, title, 'video', fmt.has_audio, card);
       });
 
       return card;
@@ -1051,8 +1050,7 @@
       `;
 
       card.addEventListener('click', () => {
-        downloadFile(currentUrl, fmt.format_id, title, 'audio');
-        showToast(`Starting audio download...`, 'info', 3000);
+        downloadFile(currentUrl, fmt.format_id, title, 'audio', true, card);
       });
 
       return card;
@@ -1072,16 +1070,64 @@
       return `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>`;
     }
 
-    // ─── Download ────────────────────────────────────────────
-    function downloadFile(url, formatId, title, type) {
+    // ─── Download (Non-blocking with localized button state) ──
+    function downloadFile(url, formatId, title, type, hasAudio, buttonEl) {
       const safeName = (title || 'nimali-download').replace(/[^a-zA-Z0-9 _-]/g, '').substring(0, 80);
       const endpoint = type === 'audio' ? '/api/download-audio' : '/api/download';
       const params = new URLSearchParams({ url, format: formatId, filename: safeName });
+      if (type !== 'audio') params.set('hasAudio', hasAudio ? 'true' : 'false');
       const downloadUrl = `${endpoint}?${params.toString()}`;
 
-      // Native browser download — no fetch/blob, no target="_blank"
-      // This lets the browser handle Content-Disposition: attachment natively
-      window.location.href = downloadUrl;
+      const needsMerge = type === 'video' && !hasAudio;
+      const isAudio = type === 'audio';
+
+      // ── 1. Localized button loading state ──
+      const originalHTML = buttonEl.innerHTML;
+      buttonEl.disabled = true;
+      buttonEl.classList.add('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+
+      const iconBg = isAudio ? 'bg-violet-500/15 text-violet-500' : 'bg-sky-accent/15 text-sky-accent';
+      const statusText = needsMerge ? 'Processing...' : 'Starting...';
+      const subText = needsMerge ? 'Merging audio & video' : 'Preparing download';
+      const subColor = needsMerge ? 'text-sky-accent' : 'text-gray-400 dark:text-gray-500';
+
+      buttonEl.innerHTML = `
+        <div class="flex items-center gap-3 w-full">
+          <div class="flex items-center justify-center w-11 h-11 rounded-xl ${iconBg} flex-shrink-0">
+            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </div>
+          <div>
+            <span class="font-bold text-gray-800 dark:text-white text-sm block">${statusText}</span>
+            <span class="text-xs ${subColor}">${subText}</span>
+          </div>
+        </div>
+      `;
+
+      // ── 2. Toast notification ──
+      if (needsMerge) {
+        showToast('⏳ Processing your file in the background. You can continue using the site.', 'info', 8000);
+      } else {
+        showToast('Download started!', 'success', 3000);
+      }
+
+      // ── 3. Trigger native download via hidden <a> tag ──
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // ── 4. Revert button after download triggers ──
+      const revertDelay = needsMerge ? 12000 : 4000;
+      setTimeout(() => {
+        buttonEl.innerHTML = originalHTML;
+        buttonEl.disabled = false;
+        buttonEl.classList.remove('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+      }, revertDelay);
     }
 
     // ─── Keyboard Shortcuts ─────────────────────────────────
