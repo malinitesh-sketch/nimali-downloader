@@ -23,6 +23,7 @@ if (fs.existsSync(COOKIES_FILE)) {
 const YT_DLP_GLOBAL_ARGS = [
   '--cookies', COOKIES_FILE,
   '--no-warnings',
+  '--no-check-formats',
   '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
 ];
 
@@ -84,23 +85,39 @@ app.post('/api/info', (req, res) => {
     return res.status(400).json({ error: 'Invalid YouTube URL. Please provide a valid link.' });
   }
 
-  // Escape the URL for safe shell usage
-  const safeUrl = url.replace(/"/g, '\\"');
-  const command = `yt-dlp ${YT_DLP_GLOBAL_ARGS.map(a => `"${a}"`).join(' ')} -j "${safeUrl}"`;
+  // Use spawn (not exec) to avoid shell escaping issues with user-agent string
+  const infoArgs = [...YT_DLP_GLOBAL_ARGS, '-j', url];
 
   console.log(`[INFO] Fetching info for: ${url}`);
 
-  exec(command, { maxBuffer: 10 * 1024 * 1024, timeout: 60000 }, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`[ERROR] yt-dlp info failed: ${stderr || error.message}`);
-      return res.status(500).json({
-        error: 'Failed to fetch video info. Please check the URL or try again later.',
-        details: stderr || error.message,
-      });
+  const ytdlp = spawn('yt-dlp', infoArgs);
+  let stdoutData = '';
+  let stderrData = '';
+
+  ytdlp.stdout.on('data', (chunk) => { stdoutData += chunk.toString(); });
+  ytdlp.stderr.on('data', (chunk) => { stderrData += chunk.toString(); });
+
+  ytdlp.on('error', (err) => {
+    console.error(`[ERROR] yt-dlp spawn failed: ${err.message}`);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'yt-dlp is not installed on the server.' });
+    }
+  });
+
+  ytdlp.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`[ERROR] yt-dlp info failed: ${stderrData || 'Unknown error'}`);
+      if (!res.headersSent) {
+        return res.status(500).json({
+          error: 'Failed to fetch video info. Please check the URL or try again later.',
+          details: stderrData || `Exit code: ${code}`,
+        });
+      }
+      return;
     }
 
     try {
-      const data = JSON.parse(stdout);
+      const data = JSON.parse(stdoutData);
 
       // ── Build clean video+audio combined formats ──
       const videoFormats = [];
@@ -400,12 +417,18 @@ app.get('/api/download', (req, res) => {
 // ─── Thumbnail Download Handler ─────────────────────────────────────────────
 
 function handleThumbnailDownload(req, res, url) {
-  const safeUrl = url.replace(/"/g, '\\"');
-  const command = `yt-dlp ${YT_DLP_GLOBAL_ARGS.map(a => `"${a}"`).join(' ')} --write-thumbnail --skip-download --print thumbnail -j "${safeUrl}"`;
+  const thumbArgs = [...YT_DLP_GLOBAL_ARGS, '--skip-download', '-j', url];
 
-  exec(command, { timeout: 30000 }, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`[ERROR] Thumbnail fetch failed: ${stderr || error.message}`);
+  const ytdlp = spawn('yt-dlp', thumbArgs);
+  let stdoutData = '';
+  let stderrData = '';
+
+  ytdlp.stdout.on('data', (chunk) => { stdoutData += chunk.toString(); });
+  ytdlp.stderr.on('data', (chunk) => { stderrData += chunk.toString(); });
+
+  ytdlp.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`[ERROR] Thumbnail fetch failed: ${stderrData}`);
       if (!res.headersSent) {
         return res.status(500).json({ error: 'Failed to fetch thumbnail.' });
       }
@@ -413,7 +436,7 @@ function handleThumbnailDownload(req, res, url) {
     }
 
     try {
-      const data = JSON.parse(stdout);
+      const data = JSON.parse(stdoutData);
       const thumbnailUrl = data.thumbnail;
       if (thumbnailUrl) {
         res.redirect(thumbnailUrl);
@@ -421,8 +444,7 @@ function handleThumbnailDownload(req, res, url) {
         res.status(404).json({ error: 'Thumbnail not found.' });
       }
     } catch (e) {
-      // If direct JSON parse fails, try reading the printed thumbnail URL
-      const lines = stdout.trim().split('\n');
+      const lines = stdoutData.trim().split('\n');
       const lastLine = lines[lines.length - 1];
       if (lastLine && lastLine.startsWith('http')) {
         res.redirect(lastLine);
