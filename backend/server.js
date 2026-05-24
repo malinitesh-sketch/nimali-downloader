@@ -483,10 +483,10 @@ app.get('/api/download-audio', (req, res) => {
   });
 });
 
-// ─── Serve Frontend ─────────────────────────────────────────────────────────
+// ─── 404 Handler (API-only backend — frontend is on Vercel) ─────────────────
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
+app.use((req, res) => {
+  res.status(404).json({ error: 'Endpoint not found.' });
 });
 
 // ─── Start Server ───────────────────────────────────────────────────────────
