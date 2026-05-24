@@ -238,10 +238,10 @@ app.get('/api/download', (req, res) => {
   const tempFileName = `nimali_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp4`;
   const tempFile = path.join(TEMP_DIR, tempFileName);
 
-  // Build yt-dlp args based on whether format already has audio
-  const needsMerge = hasAudio !== 'true';
-  const formatArg = needsMerge ? `${format}+bestaudio/best` : format;
-  const mode = needsMerge ? 'MERGE' : 'DOWNLOAD';
+  // Always use "best" — lets yt-dlp pick the best available pre-muxed format
+  // Avoids "Requested format is not available" errors from forcing specific format_ids
+  const formatArg = 'best';
+  const mode = 'DOWNLOAD';
 
   console.log(`[${mode}] Starting: format=${formatArg}, url=${url}`);
   console.log(`[${mode}] Temp file: ${tempFile}`);
@@ -255,12 +255,6 @@ app.get('/api/download', (req, res) => {
     '-o', tempFile,
     url,
   ];
-
-  // Add merge flags only when combining separate video+audio streams
-  if (needsMerge) {
-    args.splice(2, 0, '--merge-output-format', 'mp4', '--ffmpeg-location', ffmpegPath);
-    console.log(`[${mode}] ffmpeg: ${ffmpegPath}`);
-  }
 
   const ytdlp = spawn('yt-dlp', args);
   let stderrOutput = '';
