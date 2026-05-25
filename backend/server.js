@@ -32,9 +32,9 @@ const YT_DLP_GLOBAL_ARGS = [
   '--no-check-formats',
   '--no-cache-dir',
   '--extractor-retries', '3',
-  '--sleep-requests', '2',
+  '--sleep-requests', '5',
 
-  '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+  '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   '--referer', 'https://www.youtube.com/',
   '--add-header', 'Origin:https://www.youtube.com',
   '--extractor-args', 'youtube:player_client=android_embedded',
