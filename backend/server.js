@@ -19,11 +19,21 @@ if (fs.existsSync(COOKIES_FILE)) {
   console.warn(`[STARTUP] WARNING: cookies.txt NOT FOUND at ${COOKIES_FILE}`);
 }
 
+// Extra preview (only metadata) for Render/Vercel debugging
+logCookiesFilePreview();
+
 // Global yt-dlp flags for all invocations (bypass bot detection)
 const YT_DLP_GLOBAL_ARGS = [
+  // Use cookie file to bypass some anti-bot checks.
   '--cookies', COOKIES_FILE,
+
+  // Anti-bot / network reliability options.
   '--no-warnings',
   '--no-check-formats',
+  '--no-cache-dir',
+  '--extractor-retries', '3',
+  '--sleep-requests', '2',
+
   '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
   '--referer', 'https://www.youtube.com/',
   '--add-header', 'Origin:https://www.youtube.com',
@@ -44,6 +54,33 @@ function isValidYouTubeUrl(url) {
   const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)[A-Za-z0-9_-]+/;
   return pattern.test(url);
 }
+
+/**
+ * Minimal debug to confirm cookie file exists and appears non-empty.
+ * (Does NOT log cookie contents.)
+ */
+function logCookiesFilePreview() {
+  try {
+    if (!fs.existsSync(COOKIES_FILE)) {
+      console.warn(`[STARTUP] WARNING: cookies.txt NOT FOUND at ${COOKIES_FILE}`);
+      return;
+    }
+
+    const size = fs.statSync(COOKIES_FILE).size;
+    const content = fs.readFileSync(COOKIES_FILE, 'utf8');
+    const firstNonEmpty = content
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'))[0];
+
+    console.log(
+      `[STARTUP] cookies.txt exists (${size} bytes). First non-empty line preview: ${firstNonEmpty ? firstNonEmpty.slice(0, 60) + '...' : 'N/A'}`
+    );
+  } catch (e) {
+    console.warn(`[STARTUP] Could not preview cookies.txt: ${e.message}`);
+  }
+}
+
 
 /**
  * Format seconds into HH:MM:SS or MM:SS.
